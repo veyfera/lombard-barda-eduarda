@@ -1,0 +1,18 @@
+.container {
+    margin: 0 auto;
+    width: 90%;
+}
+
+input, select, option {
+    padding: 10px;
+    margin: 5px;
+}
+
+#pagination {
+    margin-top: 50px;
+}
+
+#pagination a {
+    padding: 5px;
+    margin: 10px;
+}
