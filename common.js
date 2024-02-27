@@ -141,7 +141,6 @@ async function initFilters() {
     let filtersForm = document.getElementById("filters-form")
     let filtersSelect = document.getElementById("filter-type")
     let filters = document.querySelectorAll(".filter-types input, .filter-types select")
-    idk = filtersForm
 
     //init from url params 
     for(f of filters) {
