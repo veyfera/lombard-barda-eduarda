@@ -9,7 +9,7 @@ let productIds = []
 
 function generatePassword() {
     const d = new Date()
-    const timestamp = d.getFullYear() + `${d.getMonth()+1}`.padStart(2, "0") + d.getDate()
+    const timestamp = d.getFullYear() + `${d.getMonth()+1}`.padStart(2, "0") + `${d.getDate()}`.padStart(2, "0")
     let password = md5(`${PASSWD}_${timestamp}`)
     return password
 }
@@ -18,7 +18,7 @@ async function queryApi(body)
 {
     while(true){
         try {
-            const data = await fetch("http://api.valantis.store:40000/",
+            const data = await fetch("https://api.valantis.store:41000/",
                 {
                     method: "POST",
                     body: JSON.stringify(body),
@@ -30,7 +30,7 @@ async function queryApi(body)
             if(!data.ok)
                 throw new Error(await data.text())
             const res = await data.json()
-            console.log(res)
+            console.log(res)//remove
             return res.result
         }
         catch (error) {
@@ -81,7 +81,7 @@ async function fetchProducts() {
         pagination.innerHTML = newLinks.join("\n")
     }
     let thisPageIds = productIds.slice((page-1)*LIMIT, page*LIMIT)
-    console.log("thisPageIds: ", thisPageIds, (page-1)*LIMIT, page*LIMIT)
+    console.log("thisPageIds: ", thisPageIds, (page-1)*LIMIT, page*LIMIT, "page is: ", page)
     //getDetatils
     let products = await queryApi({
         "action": "get_items",
@@ -118,8 +118,9 @@ function renderProducts(products) {
 
 function initPagination() {
     const pageNumber = document.getElementById("page-number")
-    pageNumber.innerHTML = g.get("page") || 1
     const pagination = document.getElementById("pagination")
+
+    pageNumber.innerHTML = g.get("page") || 1
 
     pagination.addEventListener("click", (e) => {
         e.preventDefault()
@@ -132,8 +133,6 @@ function initPagination() {
         const url = new URL(window.location)
         url.searchParams.set("page", page)
         window.history.pushState({}, '', url)
-        pageNumber.innerHTML = page
-        //fetch new items
     })
 }
 
@@ -141,14 +140,18 @@ async function initFilters() {
     let filtersForm = document.getElementById("filters-form")
     let filtersSelect = document.getElementById("filter-type")
     let filters = document.querySelectorAll(".filter-types input, .filter-types select")
+    const initialUrl = new URLSearchParams(document.location.search)
 
     //init from url params 
     for(f of filters) {
-        if(g.has(f.name))
+        if(initialUrl.has(f.name))
         {
             filtersSelect.value = f.name
             f.hidden = false
-            f.value = g.get(f.name)
+            let tmp = initialUrl.get(f.name)
+            if(f.tagName == "SELECT")
+                f.add(new Option(tmp, tmp))
+            f.value = tmp
             break
         }
     }
@@ -177,6 +180,7 @@ async function initFilters() {
         //update url
         const url = new URL(window.location)
         url.search = ""
+        console.log("new url: ", url)
         if(e.submitter.id == "apply") {
             url.searchParams.set(paramName, paramValue)
         } else {
@@ -217,16 +221,15 @@ window.navigation.addEventListener("navigate", (e) => {
     //update current page text
     const pageNumber = document.getElementById("page-number")
     pageNumber.innerHTML = g.get("page") || 1
+
     fetchProducts()//updatePage
 })
 
 window.addEventListener("load", function() {
-    //do vital first
     password = generatePassword()
-    let params = new URLSearchParams(document.location.search)
-    g = params
+    g = new URLSearchParams(document.location.search)
     productTemplate = document.getElementById("product-template")
     initFilters()
     initPagination()
-    fetchProducts()//updatePage
+    fetchProducts()
 })

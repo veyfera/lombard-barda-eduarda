@@ -9,10 +9,12 @@ body {
 }
 
 .filters {
-    display: inline-block;
+    /*display: inline-block;*/
     padding: 5px;
     border: 1px solid #333;
     text-align: right;
+    text-align: center;
+    position: relative;
 }
 
 input, select, option {
