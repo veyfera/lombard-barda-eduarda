@@ -2,10 +2,10 @@ const LIMIT = 50
 const PASSWD = "Valantis"
 
 let password = generatePassword()
-let g//rename, remove
-let idk
-let productTemplate
+// commonly used elements
+let url
 let productIds = []
+let productsContainer, productTemplate, filtersForm, activeFilter, pagination, pageNumber
 
 function generatePassword() {
     const d = new Date()
@@ -41,26 +41,19 @@ async function queryApi(body)
 
 async function fetchProducts() {
     // start loading
-    const productsContainer = document.getElementById("main-products")
     productsContainer.childNodes.forEach((c) => c.hidden = true)
     const loading = document.getElementById("loading")
     loading.hidden = false
-    //end loading
-    let filtersForm = document.getElementById("filters-form")
-    let filtersSelect = document.getElementById("filter-type")
-    let fd = new FormData(filtersForm)
-    let paramName = filtersSelect.value
-    let paramValue = fd.get(paramName) !== 'null' ? parseFloat(fd.get(paramName)) || fd.get(paramName) : null
     
-    console.log("fetching products with prametes: ", paramName, paramValue, typeof paramValue)
-    let page = Number(g.get("page")) || 1//remove
-    console.log("Fetching products page: ", page)
     if(!productIds.length) {
         //getIds
-        if(filtersSelect.value) {
+        if(activeFilter.value) {
+            let filterValue = url.get(activeFilter.value)
+            //can be null, float, str
+            filterValue = filterValue !== 'null' ? parseFloat(filterValue) || filterValue : null
             productIds = await queryApi({
                 "action": "filter",
-                "params": {[paramName]: paramValue}
+                "params": {[activeFilter.value]: filterValue}
             })
         } else {
             productIds = await queryApi({
@@ -72,7 +65,6 @@ async function fetchProducts() {
         let pageCount = Math.ceil(productIds.length / LIMIT)
         console.log("total pages: ", pageCount)
         //render pagination
-        let pagination = document.getElementById("pagination")
         let newLinks = Array.from({length: pageCount}, (uselessValue, i) => {
             p = document.createElement("a")
             p.href = p.text = i+1
@@ -80,21 +72,22 @@ async function fetchProducts() {
         })
         pagination.innerHTML = newLinks.join("\n")
     }
-    let thisPageIds = productIds.slice((page-1)*LIMIT, page*LIMIT)
-    console.log("thisPageIds: ", thisPageIds, (page-1)*LIMIT, page*LIMIT, "page is: ", page)
+
+    let page = Number(url.get("page")) || 1//remove
+    let currentPageIds = productIds.slice((page-1)*LIMIT, page*LIMIT)
+    console.log("currentPageIds: ", currentPageIds, (page-1)*LIMIT, page*LIMIT, "page is: ", page)
     //getDetatils
     let products = await queryApi({
         "action": "get_items",
-        "params": {"ids": thisPageIds}
+        "params": {"ids": currentPageIds}
     })
-    //remove duplicates
+    //remove duplicated products
     products = products.filter((elem, index, arr) => arr.findIndex(e => e.id === elem.id) === index) 
     renderProducts(products.slice(0, LIMIT))
     loading.hidden = true
 }
 
 function prodTemplate(prod) {
-    const productsContainer = document.getElementById("main-products")
     n = productTemplate
     n.hidden = false
     n = n.outerHTML
@@ -106,7 +99,6 @@ function prodTemplate(prod) {
 }
 
 function renderProducts(products) {
-    const productsContainer = document.getElementById("main-products")
     let prodElem = []
     for(prod of products) {
         let res = prodTemplate(prod)
@@ -117,38 +109,32 @@ function renderProducts(products) {
 }
 
 function initPagination() {
-    const pageNumber = document.getElementById("page-number")
-    const pagination = document.getElementById("pagination")
-
-    pageNumber.innerHTML = g.get("page") || 1
+    pageNumber.innerHTML = url.get("page") || 1
 
     pagination.addEventListener("click", (e) => {
         e.preventDefault()
         let page = e.srcElement.getAttribute("href")
-        let same_page = page == g.get("page")
+        let same_page = page == url.get("page")
         if(e.srcElement.tagName !== "A" || same_page) return
 
-        g.set("page", page)
+        url.set("page", page)
         //update url
-        const url = new URL(window.location)
-        url.searchParams.set("page", page)
-        window.history.pushState({}, '', url)
+        const newUrl = new URL(window.location)
+        newUrl.searchParams.set("page", page)
+        window.history.pushState({}, '', newUrl)
     })
 }
 
 async function initFilters() {
-    let filtersForm = document.getElementById("filters-form")
-    let filtersSelect = document.getElementById("filter-type")
-    let filters = document.querySelectorAll(".filter-types input, .filter-types select")
-    const initialUrl = new URLSearchParams(document.location.search)
+    let filterInputs = document.querySelectorAll(".filter-types input, .filter-types select")
 
     //init from url params 
-    for(f of filters) {
-        if(initialUrl.has(f.name))
+    for(f of filterInputs) {
+        if(url.has(f.name))
         {
-            filtersSelect.value = f.name
+            activeFilter.value = f.name
             f.hidden = false
-            let tmp = initialUrl.get(f.name)
+            let tmp = url.get(f.name)
             if(f.tagName == "SELECT")
                 f.add(new Option(tmp, tmp))
             f.value = tmp
@@ -156,54 +142,49 @@ async function initFilters() {
         }
     }
 
-    filtersSelect.addEventListener("change", (e) => {
-        let activeFilter = e.target.value
-        //filters.forEach((f) => f.name == activeFilter ? f.hidden = false : f.hidden = true )
-        filters.forEach((f) => {
-            if(f.name == activeFilter) {
-                f.hidden = false
-            } else {
+    activeFilter.addEventListener("change", (e) => {
+        let newActiveFilter = e.target.value
+        //filterInputs.forEach((f) => f.name == activeFilter ? f.hidden = false : f.hidden = true )
+        filterInputs.forEach((f) => {
+            if(f.name != newActiveFilter) {
                 f.hidden = true
                 f.value = ""
+            } else {
+                f.hidden = false
             }
         })
     })
 
     filtersForm.addEventListener("submit", (e) => {
         e.preventDefault()
-        console.log("form submited: ", e)
         let fd = new FormData(filtersForm)
-        let paramName = filtersSelect.value
+        let paramName = activeFilter.value
         let paramValue = fd.get(paramName)
-        productIds = []// we don't need old ones anymore
+        productIds = []// we don't need old id's anymore
 
         //update url
-        const url = new URL(window.location)
-        url.search = ""
-        console.log("new url: ", url)
+        const newUrl = new URL(window.location)
+        newUrl.search = ""
+
         if(e.submitter.id == "apply") {
-            url.searchParams.set(paramName, paramValue)
+            newUrl.searchParams.set(paramName, paramValue)
         } else {
-            filtersSelect.value = ""
-            filters.forEach((f) => {
-                f.hidden = true 
-                f.value = ""
-            })
+            filtersForm.reset()
+            filterInputs.forEach((f) => f.hidden = true)
         }
-        window.history.pushState({}, '', url)
+        window.history.pushState({}, '', newUrl)
     })
 
-    //get autocomplete values
     let datalists = Array.from(filtersForm.getElementsByTagName("datalist"))
     datalists.push(document.getElementById("brand"))
-
+    //get values for filter autocomplete
     for(d of datalists) {
         let brands = await queryApi({
             "action": "get_fields",
             "params": {"field": d.id}
         })
         brands = [... new Set(brands)]
-        //format to options
+        //wrap in 'option' tags
         brands = brands.map((b) => {
             let o = document.createElement("option")
             o.value = b
@@ -217,19 +198,29 @@ async function initFilters() {
 
 window.navigation.addEventListener("navigate", (e) => {
     console.log("Location changed, ", e)
+    url = new URL(e.destination.url).searchParams
 
-    //update current page text
-    const pageNumber = document.getElementById("page-number")
-    pageNumber.innerHTML = g.get("page") || 1
+    //update 'current page' text
+    pageNumber.innerHTML = url.get("page") || 1
 
-    fetchProducts()//updatePage
+    fetchProducts()
 })
 
 window.addEventListener("load", function() {
     password = generatePassword()
-    g = new URLSearchParams(document.location.search)
+    url = new URLSearchParams(document.location.search)
+
     productTemplate = document.getElementById("product-template")
+    productsContainer = document.getElementById("main-products")
+
+    filtersForm = document.getElementById("filters-form")
+    activeFilter = document.getElementById("active-filter")
+
+    pageNumber = document.getElementById("page-number")
+    pagination = document.getElementById("pagination")
+
     initFilters()
     initPagination()
+
     fetchProducts()
 })
