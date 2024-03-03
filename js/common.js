@@ -3,7 +3,7 @@ const PASSWD = "Valantis"
 
 let password = generatePassword()
 // commonly used elements
-let url
+let urlP// for storing current URLSearchParams
 let productIds = []
 let productsContainer, productTemplate, filtersForm, activeFilter, pagination, pageNumber
 
@@ -48,7 +48,7 @@ async function fetchProducts() {
     if(!productIds.length) {
         //getIds
         if(activeFilter.value) {
-            let filterValue = url.get(activeFilter.value)
+            let filterValue = urlP.get(activeFilter.value)
             //can be null, float, str
             filterValue = filterValue !== 'null' ? parseFloat(filterValue) || filterValue : null
             productIds = await queryApi({
@@ -72,11 +72,9 @@ async function fetchProducts() {
         })
         pagination.innerHTML = newLinks.join("\n")
     }
-
-    let page = Number(url.get("page")) || 1//remove
-    let currentPageIds = productIds.slice((page-1)*LIMIT, page*LIMIT)
-    console.log("currentPageIds: ", currentPageIds, (page-1)*LIMIT, page*LIMIT, "page is: ", page)
     //getDetatils
+    let page = Number(urlP.get("page")) || 1
+    let currentPageIds = productIds.slice((page-1)*LIMIT, page*LIMIT)
     let products = await queryApi({
         "action": "get_items",
         "params": {"ids": currentPageIds}
@@ -109,15 +107,15 @@ function renderProducts(products) {
 }
 
 function initPagination() {
-    pageNumber.innerHTML = url.get("page") || 1
+    pageNumber.innerHTML = urlP.get("page") || 1
 
     pagination.addEventListener("click", (e) => {
         e.preventDefault()
         let page = e.srcElement.getAttribute("href")
-        let same_page = page == url.get("page")
+        let same_page = page == urlP.get("page")
         if(e.srcElement.tagName !== "A" || same_page) return
 
-        url.set("page", page)
+        urlP.set("page", page)
         //update url
         const newUrl = new URL(window.location)
         newUrl.searchParams.set("page", page)
@@ -130,11 +128,11 @@ async function initFilters() {
 
     //init from url params 
     for(f of filterInputs) {
-        if(url.has(f.name))
+        if(urlP.has(f.name))
         {
             activeFilter.value = f.name
             f.hidden = false
-            let tmp = url.get(f.name)
+            let tmp = urlP.get(f.name)
             if(f.tagName == "SELECT")
                 f.add(new Option(tmp, tmp))
             f.value = tmp
@@ -198,17 +196,17 @@ async function initFilters() {
 
 window.navigation.addEventListener("navigate", (e) => {
     console.log("Location changed, ", e)
-    url = new URL(e.destination.url).searchParams
+    urlP = new URL(e.destination.url).searchParams
 
     //update 'current page' text
-    pageNumber.innerHTML = url.get("page") || 1
+    pageNumber.innerHTML = urlP.get("page") || 1
 
     fetchProducts()
 })
 
 window.addEventListener("load", function() {
     password = generatePassword()
-    url = new URLSearchParams(document.location.search)
+    urlP = new URLSearchParams(document.location.search)
 
     productTemplate = document.getElementById("product-template")
     productsContainer = document.getElementById("main-products")
